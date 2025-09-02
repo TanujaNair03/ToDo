@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aesthetic Calendar</title>
+    <style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --text-color: #f0f0f0;
+            /* Accent colors updated to match the new pink/yellow theme */
+            --accent-primary: #e54c91; /* Pink */
+            --accent-secondary: #ffc800; /* Yellow */
+        }
+        * {
+            box-sizing: border-box;
+        }
+        
+        /* NEW: Static, centered, pink-to-yellow radial gradient */
+        body {
+            font-family: 'Poppins', sans-serif;
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+            min-height: 100vh;
+            background-color: #1a1a2e; /* Fallback color */
+            background-image: url('./static/aura.jpg'); /* Path to your image */
+            background-repeat: no-repeat;
+            background-attachment: fixed; /* Keeps the image fixed while scrolling */
+            background-size: cover; /* Ensures the image covers the entire viewport */
+            background-position: center; /* Centers the image */
+        }
+
+        #app {
+            display: flex;
+            gap: 2rem;
+            width: 100%;
+            max-width: 1300px;
+            margin: 0 auto;
+            align-items: flex-start;
+        }
+
+        .glass-pane {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            border-radius: 15px;
+            padding: 2rem;
+        }
+
+        .sidebar {
+            width: 320px;
+            height: fit-content;
+            flex-shrink: 0;
+        }
+        .sidebar h2 { margin-top: 0; color: var(--accent-secondary); }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; }
+        .form-group input, .form-group select, .form-group button {
+            width: 100%; padding: 0.75rem; border: 1px solid var(--glass-border);
+            border-radius: 8px; background: rgba(0,0,0,0.2);
+            color: var(--text-color); font-size: 1rem;
+        }
+        .form-group button {
+            background: var(--accent-primary); cursor: pointer; font-weight: bold;
+            transition: background 0.2s ease; border: none;
+        }
+        .form-group button:hover { background: var(--accent-secondary); color: #1a1a2e; }
+        
+        .calendar-container {
+            flex-grow: 1;
+        }
+        .calendar-header { display: flex; justify-content: center; align-items: center; }
+        .calendar-header h1 {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--accent-primary);
+            margin: 0;
+        }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; width: 100%; margin-top: 2rem; }
+        .day-header { text-align: center; font-weight: bold; color: var(--accent-secondary); padding: 0.5rem 0; }
+        .day-cell {
+            min-height: 120px; padding: 8px;
+            background: rgba(0, 0, 0, 0.15);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            transition: transform 0.2s ease, background 0.2s ease;
+            display: flex; flex-direction: column;
+        }
+        .day-cell:hover { transform: translateY(-5px); background: rgba(255, 255, 255, 0.1); }
+        .day-cell.other-month { background: transparent; opacity: 0.4; }
+        .day-number { font-weight: bold; margin-bottom: 8px; }
+        .day-number.today {
+            background-color: var(--accent-primary); color: white;
+            border-radius: 50%; width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .task-list { list-style: none; padding: 0; font-size: 0.85rem; }
+        .task-item { display: flex; align-items: center; margin-bottom: 4px; gap: 6px; }
+        .task-item input[type="checkbox"] { flex-shrink: 0; }
+        .task-item span.done { text-decoration: line-through; opacity: 0.6; }
+        .task-item span { flex-grow: 1; word-break: break-word; }
+        .edit-input { width: 100%; background: #444; color: white; border: 1px solid var(--accent-primary); border-radius: 4px; padding: 2px; }
+        .task-actions { cursor: pointer; margin-left: auto; display: flex; gap: 5px; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div class="sidebar glass-pane">
+        <h2>Controls</h2>
+        <div class="form-group">
+            <label for="month">Month</label>
+            <select id="month" v-model="selectedMonth">
+                <option v-for="(month, index) in months" :value="index + 1">{{ month }}</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="year">Year</label>
+            <input type="number" id="year" v-model="selectedYear">
+        </div>
+
+        <hr style="border-color: rgba(255,255,255,0.2); margin: 2rem 0;">
+
+        <h2>Add Task</h2>
+        <form @submit.prevent="addTask">
+            <div class="form-group">
+                <label for="taskDate">Date</label>
+                <input type="date" id="taskDate" v-model="newTask.date" required>
+            </div>
+            <div class="form-group">
+                <label for="taskDesc">Task</label>
+                <input type="text" id="taskDesc" v-model="newTask.task" placeholder="What needs to be done?" required>
+            </div>
+            <div class="form-group">
+                <button type="submit">Add Task</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="calendar-container glass-pane">
+        <div class="calendar-header">
+            <h1>{{ monthName }} {{ selectedYear }}</h1>
+        </div>
+        <div class="calendar-grid">
+            <div class="day-header" v-for="day in dayNames">{{ day }}</div>
+            <div v-for="day in calendarDays" class="day-cell" :class="{'other-month': !day.isCurrentMonth}">
+                <div v-if="day.date">
+                    <div class="day-number" :class="{'today': day.isToday}">{{ day.date.getDate() }}</div>
+                    <ul class="task-list">
+                        <li v-for="(task, index) in day.tasks" class="task-item">
+                            <template v-if="editingDate === day.dateStr && editingIndex === index">
+                                <input type="text" v-model="editingText" @keyup.enter="saveEdit" @keyup.esc="cancelEditing" class="edit-input" v-focus>
+                                <div class="task-actions">
+                                    <span @click="saveEdit">✔️</span>
+                                    <span @click="cancelEditing">❌</span>
+                                </div>
+                            </template>
+                            <template v-else>
+                                <input type="checkbox" :checked="task.done" @change="updateTaskStatus(day.dateStr, index, $event.target.checked)">
+                                <span :class="{'done': task.done}">{{ task.task }}</span>
+                                <div class="task-actions">
+                                    <span @click="startEditing(day.dateStr, index, task.task)">✏️</span>
+                                    <span @click="deleteTask(day.dateStr, index)">🗑️</span>
+                                </div>
+                            </template>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script>
+    const { createApp, ref, computed, onMounted } = Vue;
+    const focusDirective = { mounted(el) { el.focus(); } };
+
+    createApp({
+        directives: { focus: focusDirective },
+        setup() {
+            const today = new Date();
+            const selectedMonth = ref(today.getMonth() + 1);
+            const selectedYear = ref(today.getFullYear());
+            const tasks = ref({});
+            const newTask = ref({ date: today.toISOString().split('T')[0], task: '' });
+            const editingDate = ref(null);
+            const editingIndex = ref(null);
+            const editingText = ref('');
+            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            const API_URL = 'http://127.0.0.1:5000/api';
+
+            const monthName = computed(() => months[selectedMonth.value - 1]);
+            const calendarDays = computed(() => {
+                const year = selectedYear.value;
+                const month = selectedMonth.value - 1;
+                const firstDayOfMonth = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const daysArray = [];
+                let dayCounter = 1;
+                for (let i = 0; i < 42; i++) {
+                    if (i >= firstDayOfMonth && dayCounter <= daysInMonth) {
+                        const dateObj = new Date(year, month, dayCounter);
+                        const y = dateObj.getFullYear();
+                        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+                        const d = String(dateObj.getDate()).padStart(2, '0');
+                        const dateStr = `${y}-${m}-${d}`;
+                        daysArray.push({
+                            date: dateObj,
+                            dateStr: dateStr,
+                            isCurrentMonth: true,
+                            isToday: dateStr === today.toISOString().split('T')[0],
+                            tasks: tasks.value[dateStr] || []
+                        });
+                        dayCounter++;
+                    } else {
+                        daysArray.push({ date: null, isCurrentMonth: false, tasks: [] });
+                    }
+                }
+                return daysArray;
+            });
+
+            const fetchTasks = async () => {
+                const response = await fetch(`${API_URL}/tasks`);
+                tasks.value = await response.json();
+            };
+
+            const addTask = async () => {
+                await fetch(`${API_URL}/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newTask.value)
+                });
+                newTask.value.task = '';
+                fetchTasks();
+            };
+
+            const updateTaskStatus = async (dateStr, taskIndex, isDone) => {
+                await fetch(`${API_URL}/tasks/update`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ date: dateStr, taskIndex: taskIndex, done: isDone })
+                });
+                fetchTasks();
+            };
+
+            const startEditing = (dateStr, index, currentText) => {
+                editingDate.value = dateStr;
+                editingIndex.value = index;
+                editingText.value = currentText;
+            };
+
+            const cancelEditing = () => {
+                editingDate.value = null;
+                editingIndex.value = null;
+                editingText.value = '';
+            };
+
+            const saveEdit = async () => {
+                if (!editingText.value.trim()) return;
+                await fetch(`${API_URL}/tasks/edit`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        date: editingDate.value,
+                        taskIndex: editingIndex.value,
+                        newTaskText: editingText.value
+                    })
+                });
+                cancelEditing();
+                fetchTasks();
+            };
+
+            const deleteTask = async (dateStr, taskIndex) => {
+                if (window.confirm("Are you sure you want to delete this task?")) {
+                    await fetch(`${API_URL}/tasks/${dateStr}/${taskIndex}`, { method: 'DELETE' });
+                    fetchTasks();
+                }
+            };
+
+            onMounted(fetchTasks);
+
+            return {
+                selectedMonth,
+                selectedYear,
+                months,
+                dayNames,
+                monthName,
+                calendarDays,
+                newTask,
+                addTask,
+                updateTaskStatus,
+                editingDate,
+                editingIndex,
+                editingText,
+                startEditing,
+                cancelEditing,
+                saveEdit,
+                deleteTask,
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

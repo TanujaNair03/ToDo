@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aesthetic Calendar</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a; --primary: #2c3e50; --secondary: #42b983;
+            --text-color: #e0e0e0; --border-color: #444; --accent-color: #3498db;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color); color: var(--text-color);
+            margin: 0; display: flex; justify-content: center; align-items: flex-start;
+            padding-top: 2rem;
+        }
+        #app {
+            display: flex; gap: 2rem; width: 90%; max-width: 1200px;
+        }
+        .sidebar {
+            width: 280px; background: var(--primary); padding: 1.5rem;
+            border-radius: 12px; height: fit-content;
+        }
+        .sidebar h2 { margin-top: 0; color: var(--secondary); }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; }
+        .form-group input, .form-group select, .form-group button {
+            width: 100%; padding: 0.75rem; border: none; border-radius: 8px;
+            background: #333; color: var(--text-color); box-sizing: border-box;
+        }
+        .form-group button {
+            background: var(--secondary); cursor: pointer; font-weight: bold;
+            transition: background 0.2s ease;
+        }
+        .form-group button:hover { background: #36a473; }
+        .calendar-container { flex-grow: 1; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .day-header { text-align: center; font-weight: bold; color: var(--accent-color); padding: 0.5rem 0; }
+        .day-cell {
+            background: var(--primary); border: 1px solid var(--border-color);
+            min-height: 120px; padding: 8px; border-radius: 8px;
+            transition: background 0.2s ease;
+        }
+        .day-cell.other-month { background: #222; opacity: 0.5; }
+        .day-number { font-weight: bold; }
+        .day-number.today {
+            background-color: var(--accent-color); color: white;
+            border-radius: 50%; width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .task-list { list-style: none; padding: 0; margin-top: 8px; font-size: 0.85rem; }
+        .task-item { display: flex; align-items: center; margin-bottom: 4px; }
+        .task-item input { margin-right: 8px; cursor: pointer; }
+        .task-item span.done { text-decoration: line-through; opacity: 0.6; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div class="sidebar">
+        <h2>Controls</h2>
+        <div class="form-group">
+            <label for="month">Month</label>
+            <select id="month" v-model="selectedMonth">
+                <option v-for="(month, index) in months" :value="index + 1">{{ month }}</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="year">Year</label>
+            <input type="number" id="year" v-model="selectedYear">
+        </div>
+        <h2>Add Task</h2>
+        <form @submit.prevent="addTask">
+            <div class="form-group">
+                <label for="taskDate">Date</label>
+                <input type="date" id="taskDate" v-model="newTask.date" required>
+            </div>
+            <div class="form-group">
+                <label for="taskDesc">Task</label>
+                <input type="text" id="taskDesc" v-model="newTask.task" placeholder="What needs to be done?" required>
+            </div>
+            <div class="form-group">
+                <button type="submit">Add Task</button>
+            </div>
+        </form>
+    </div>
+    <div class="calendar-container">
+        <div class="calendar-header">
+            <h1>{{ monthName }} {{ selectedYear }}</h1>
+        </div>
+        <div class="calendar-grid">
+            <div class="day-header" v-for="day in dayNames">{{ day }}</div>
+            <div v-for="day in calendarDays" class="day-cell" :class="{'other-month': !day.isCurrentMonth}">
+                <div v-if="day.date">
+                    <div class="day-number" :class="{'today': day.isToday}">{{ day.date.getDate() }}</div>
+                    <ul class="task-list">
+                        <li v-for="(task, index) in day.tasks" class="task-item">
+                            <input type="checkbox" :checked="task.done" @change="updateTask(day.dateStr, index, $event.target.checked)">
+                            <span :class="{'done': task.done}">{{ task.task }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script>
+    console.log("DEBUG: Script block started.");
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            console.log("DEBUG: Vue setup() function called.");
+            const today = new Date();
+            const selectedMonth = ref(today.getMonth() + 1);
+            const selectedYear = ref(today.getFullYear());
+            const tasks = ref({});
+            const newTask = ref({ date: today.toISOString().split('T')[0], task: '' });
+
+            const months = [
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+            ];
+            const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            const API_URL = 'http://127.0.0.1:5000/api';
+
+            const monthName = computed(() => months[selectedMonth.value - 1]);
+
+            const calendarDays = computed(() => {
+                const year = selectedYear.value;
+                const month = selectedMonth.value - 1;
+                const firstDayOfMonth = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const daysArray = [];
+                let dayCounter = 1;
+
+                for (let i = 0; i < 42; i++) {
+                    if (i >= firstDayOfMonth && dayCounter <= daysInMonth) {
+                        const dateObj = new Date(year, month, dayCounter);
+                        const dateStr = dateObj.toISOString().split('T')[0];
+                        daysArray.push({
+                            date: dateObj,
+                            dateStr: dateStr,
+                            isCurrentMonth: true,
+                            isToday: dateStr === today.toISOString().split('T')[0],
+                            tasks: tasks.value[dateStr] || []
+                        });
+                        dayCounter++;
+                    } else {
+                        daysArray.push({ date: null, isCurrentMonth: false, tasks: [] });
+                    }
+                }
+                return daysArray;
+            });
+
+            const fetchTasks = async () => {
+                console.log("DEBUG: Fetching tasks from API...");
+                try {
+                    const response = await fetch(`${API_URL}/tasks`);
+                    if (!response.ok) {
+                        console.error("DEBUG: API response was not ok.", response.status);
+                        return;
+                    }
+                    tasks.value = await response.json();
+                    console.log("DEBUG: Tasks loaded successfully.", tasks.value);
+                } catch (error) {
+                    console.error("DEBUG: There was an error fetching tasks:", error);
+                }
+            };
+
+            const addTask = async () => {
+                await fetch(`${API_URL}/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newTask.value)
+                });
+                newTask.value.task = '';
+                fetchTasks();
+            };
+
+            const updateTask = async (dateStr, taskIndex, isDone) => {
+                await fetch(`${API_URL}/tasks/update`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        date: dateStr,
+                        taskIndex: taskIndex,
+                        done: isDone
+                    })
+                });
+                fetchTasks();
+            };
+            
+            onMounted(() => {
+                console.log("DEBUG: Vue component is mounted. Calling fetchTasks().");
+                fetchTasks();
+            });
+
+            return {
+                selectedMonth, selectedYear, months, dayNames, monthName,
+                calendarDays, newTask, addTask, updateTask
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

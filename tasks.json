@@ -1,0 +1,14 @@
+{
+    "2025-09-01": [
+        {
+            "task": "create to do calendar app",
+            "done": true
+        }
+    ],
+    "2025-09-02": [
+        {
+            "task": "upload App Dev 1 Project on GitHub",
+            "done": false
+        }
+    ]
+}

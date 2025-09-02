@@ -1,0 +1,103 @@
+<script>
+    console.log("DEBUG: Script block started.");
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            console.log("DEBUG: Vue setup() function called.");
+            // --- Reactive State ---
+            const today = new Date();
+            const selectedMonth = ref(today.getMonth() + 1);
+            const selectedYear = ref(today.getFullYear());
+            const tasks = ref({});
+            const newTask = ref({ date: today.toISOString().split('T')[0], task: '' });
+
+            const months = [
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+            ];
+            const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            const API_URL = 'http://127.0.0.1:5000/api';
+
+            // --- Computed Properties ---
+            const monthName = computed(() => months[selectedMonth.value - 1]);
+
+            const calendarDays = computed(() => {
+                const year = selectedYear.value;
+                const month = selectedMonth.value - 1;
+                const firstDayOfMonth = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const daysArray = [];
+                let dayCounter = 1;
+
+                for (let i = 0; i < 42; i++) {
+                    if (i >= firstDayOfMonth && dayCounter <= daysInMonth) {
+                        const dateObj = new Date(year, month, dayCounter);
+                        const dateStr = dateObj.toISOString().split('T')[0];
+                        daysArray.push({
+                            date: dateObj,
+                            dateStr: dateStr,
+                            isCurrentMonth: true,
+                            isToday: dateStr === today.toISOString().split('T')[0],
+                            tasks: tasks.value[dateStr] || []
+                        });
+                        dayCounter++;
+                    } else {
+                        daysArray.push({ date: null, isCurrentMonth: false, tasks: [] });
+                    }
+                }
+                return daysArray;
+            });
+
+            // --- Methods ---
+            const fetchTasks = async () => {
+                console.log("DEBUG: Fetching tasks from API...");
+                try {
+                    const response = await fetch(`${API_URL}/tasks`);
+                    if (!response.ok) {
+                        console.error("DEBUG: API response was not ok.", response.status);
+                        return;
+                    }
+                    tasks.value = await response.json();
+                    console.log("DEBUG: Tasks loaded successfully.", tasks.value);
+                } catch (error) {
+                    console.error("DEBUG: There was an error fetching tasks:", error);
+                }
+            };
+
+            const addTask = async () => {
+                await fetch(`${API_URL}/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newTask.value)
+                });
+                newTask.value.task = ''; // Clear input field
+                fetchTasks(); // Refresh tasks
+            };
+
+            const updateTask = async (dateStr, taskIndex, isDone) => {
+                await fetch(`${API_URL}/tasks/update`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        date: dateStr,
+                        taskIndex: taskIndex,
+                        done: isDone
+                    })
+                });
+                fetchTasks(); // Refresh tasks
+            };
+            
+            // --- Lifecycle Hook ---
+            onMounted(() => {
+                console.log("DEBUG: Vue component is mounted. Calling fetchTasks().");
+                fetchTasks();
+            });
+
+            return {
+                selectedMonth, selectedYear, months, dayNames, monthName,
+                calendarDays, newTask, addTask, updateTask
+            };
+        }
+    }).mount('#app');
+</script>

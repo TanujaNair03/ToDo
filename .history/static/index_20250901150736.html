@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aesthetic Calendar</title>
+    <style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --text-color: #e0e0e0;
+            --accent-primary: #bc82a5; /* Muted Plum */
+            --accent-secondary: #8ca3bf; /* Dusty Blue */
+        }
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #121212; /* Dark, simple fallback */
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+            overflow: hidden;
+            min-height: 100vh;
+        }
+        #app {
+            width: 100%;
+            min-height: calc(100vh - 4rem);
+            position: relative;
+            overflow: hidden;
+            transition: background 0.3s ease;
+            display: flex;
+            gap: 2rem;
+            border-radius: 15px;
+            padding: 1.5rem;
+        }
+        .ripple {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: ripple-fade 1s ease-out;
+            pointer-events: none;
+        }
+        @keyframes ripple-fade {
+            from { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+            to { transform: translate(-50%, -50%) scale(5); opacity: 0; }
+        }
+        .sidebar, .day-cell {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            border-radius: 15px;
+        }
+        .sidebar {
+            width: 280px;
+            padding: 1.5rem;
+            height: fit-content;
+            flex-shrink: 0;
+        }
+        .sidebar h2 { margin-top: 0; color: var(--accent-secondary); }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; }
+        .form-group input, .form-group select, .form-group button {
+            width: 100%; padding: 0.75rem; border: 1px solid var(--glass-border);
+            border-radius: 8px; background: rgba(0,0,0,0.2);
+            color: var(--text-color); font-size: 1rem;
+        }
+        .form-group button {
+            background: var(--accent-primary); cursor: pointer; font-weight: bold;
+            transition: background 0.2s ease; border: none;
+        }
+        .form-group button:hover { background: var(--accent-secondary); color: #1a1a1a; }
+        .calendar-container { flex-grow: 1; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+        .day-header { text-align: center; font-weight: bold; color: var(--accent-secondary); padding: 0.5rem 0; }
+        .day-cell {
+            min-height: 120px; padding: 8px;
+            transition: background 0.2s ease; display: flex; flex-direction: column;
+        }
+        .day-cell.other-month { background: transparent; opacity: 0.4; backdrop-filter: none; box-shadow: none; }
+        .day-number { font-weight: bold; margin-bottom: 8px; }
+        .day-number.today {
+            background-color: var(--accent-primary); color: white;
+            border-radius: 50%; width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .task-list { list-style: none; padding: 0; font-size: 0.85rem; }
+        .task-item { display: flex; align-items: center; margin-bottom: 4px; gap: 6px; }
+        .task-item input[type="checkbox"] { flex-shrink: 0; }
+        .task-item span.done { text-decoration: line-through; opacity: 0.6; }
+        .task-item span { flex-grow: 1; word-break: break-word; }
+        .edit-input { width: 100%; background: #444; color: white; border: 1px solid var(--accent-primary); border-radius: 4px; padding: 2
